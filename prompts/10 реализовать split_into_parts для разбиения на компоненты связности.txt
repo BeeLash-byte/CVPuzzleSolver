@@ -1,0 +1,262 @@
+реализуй split_into_parts.cpp
+объедини основываясь на маске (те пиксели что содержат 255 - это пиксели объектов)
+объекты в компоненты связности через DisjointSet
+определи для них границы (bbox2)
+выдели части изображения, маски и offset (координаты угла картинки с объектом в оригинальной картинке)
+и верни список изображения+маски+offset для каждого найденного объекта - компоненты связности в маске
+прилагаю ниже split_into_parts.h и split_into_parts_tests.cpp и disjoint_set.h и bbox2.h:
+
+#pragma once
+
+#include <libimages/image.h>
+#include <libbase/point2.h>
+
+
+std::tuple<std::vector<point2i>, std::vector<image32f>, std::vector<image8u>> splitObjects(
+    const image32f &image, const image8u &objectsMask);
+
+#include "split_into_parts.h"
+
+#include <gtest/gtest.h>
+
+#include <libbase/stats.h>
+#include <libbase/point2.h>
+#include <libbase/runtime_assert.h>
+#include <libbase/configure_working_directory.h>
+#include <libimages/debug_io.h>
+#include <libimages/image.h>
+
+template <typename T>
+void drawRect(Image<T> &image, point2i from, point2i to, T value) {
+    rassert(from.x >= 0 && from.x < image.height(), 3728197319283);
+    rassert(to.x > 0 && to.x <= image.height(), 372819723413);
+    rassert(from.x < to.x && from.y < to.y, 4782197429181);
+    for (int j = from.y; j < to.y; ++j) {
+        for (int i = from.x; i < to.x; ++i) {
+            image(j, i) = value;
+        }
+    }
+}
+
+TEST(split_into_parts, oneComponent) {
+    configureWorkingDirectory();
+
+    int w = 95;
+    int h = 105;
+    image32f image(w, h, 1);
+    image8u objectsMask(w, h, 1);
+    unsigned char objectMaskValue = 255;
+
+    point2i aFrom = {10, 20};
+    point2i aTo = {30, 60};
+    point2i aSize = aTo - aFrom;
+    float aColor = 239.0f;
+    drawRect(image, aFrom, aTo, aColor);
+    drawRect(objectsMask, aFrom, aTo, objectMaskValue);
+
+    auto [objectsOffsets, objectsImages, objectsMasks]
+        = splitObjects(image, objectsMask);
+
+    // check that we found exactly one object A
+    size_t n = objectsImages.size();
+    ASSERT_EQ(n, objectsMasks.size());
+    ASSERT_EQ(n, objectsOffsets.size());
+    ASSERT_EQ(n, 1);
+
+    ASSERT_EQ(objectsOffsets[0], aFrom);
+
+    ASSERT_EQ(objectsImages[0].width(), aSize.x);
+    ASSERT_EQ(objectsImages[0].height(), aSize.y);
+
+    ASSERT_EQ(objectsMasks[0].width(), aSize.x);
+    ASSERT_EQ(objectsMasks[0].height(), aSize.y);
+
+    ASSERT_EQ(stats::minValue(objectsImages[0].toVector()), aColor);
+    ASSERT_EQ(stats::maxValue(objectsImages[0].toVector()), aColor);
+
+    ASSERT_EQ(stats::minValue(objectsMasks[0].toVector()), 255);
+    ASSERT_EQ(stats::maxValue(objectsMasks[0].toVector()), 255);
+}
+
+TEST(split_into_parts, twoComponents) {
+    configureWorkingDirectory();
+
+    int w = 105;
+    int h = 95;
+    image32f image(w, h, 1);
+    image8u objectsMask(w, h, 1);
+    unsigned char objectMaskValue = 255;
+
+    point2i aFrom = {10, 20};
+    point2i aTo = {30, 60};
+    point2i aSize = aTo - aFrom;
+    float aColor = 239.0f;
+    drawRect(image, aFrom, aTo, aColor);
+    drawRect(objectsMask, aFrom, aTo, objectMaskValue);
+
+    point2i bFrom = {60, 70};
+    point2i bTo = {76, 85};
+    point2i bSize = aTo - aFrom;
+    float bColor = 123.0f;
+    drawRect(image, bFrom, bTo, bColor);
+    drawRect(objectsMask, bFrom, bTo, objectMaskValue);
+
+    auto [objectsOffsets, objectsImages, objectsMasks]
+        = splitObjects(image, objectsMask);
+
+    // check that we found exactly two objects: A and B
+    size_t n = objectsImages.size();
+    ASSERT_EQ(n, objectsMasks.size());
+    ASSERT_EQ(n, objectsOffsets.size());
+    ASSERT_EQ(n, 2);
+
+    // if you have different order (B at index 0 and A at index 1) - that's OK
+    // just update this unit-test
+    ASSERT_EQ(objectsOffsets[0], aFrom);
+    ASSERT_EQ(objectsOffsets[1], bFrom);
+
+    ASSERT_EQ(objectsImages[0].width(), aSize.x);
+    ASSERT_EQ(objectsImages[0].height(), aSize.y);
+    ASSERT_EQ(objectsImages[1].width(), bSize.x);
+    ASSERT_EQ(objectsImages[1].height(), bSize.y);
+
+    ASSERT_EQ(objectsMasks[0].width(), aSize.x);
+    ASSERT_EQ(objectsMasks[0].height(), aSize.y);
+    ASSERT_EQ(objectsMasks[1].width(), bSize.x);
+    ASSERT_EQ(objectsMasks[1].height(), bSize.y);
+
+    ASSERT_EQ(stats::minValue(objectsImages[0].toVector()), aColor);
+    ASSERT_EQ(stats::maxValue(objectsImages[0].toVector()), aColor);
+    ASSERT_EQ(stats::minValue(objectsImages[1].toVector()), bColor);
+    ASSERT_EQ(stats::maxValue(objectsImages[1].toVector()), bColor);
+
+    ASSERT_EQ(stats::minValue(objectsMasks[0].toVector()), 255);
+    ASSERT_EQ(stats::maxValue(objectsMasks[0].toVector()), 255);
+    ASSERT_EQ(stats::minValue(objectsMasks[1].toVector()), 255);
+    ASSERT_EQ(stats::maxValue(objectsMasks[1].toVector()), 255);
+}
+
+
+#pragma once
+
+#include <libimages/image.h>
+#include <libbase/point2.h>
+
+
+std::tuple<std::vector<point2i>, std::vector<image32f>, std::vector<image8u>> splitObjects(
+    const image32f &image, const image8u &objectsMask);
+
+
+
+
+#pragma once
+
+#include <source_location>
+#include <utility>
+#include <vector>
+
+class DisjointSetUnion final {
+public:
+    explicit DisjointSetUnion(std::size_t n);
+
+    std::size_t size() const noexcept { return parent_.size(); }
+
+    std::size_t find(std::size_t x, std::source_location loc = std::source_location::current());
+    std::size_t find(std::size_t x, std::source_location loc = std::source_location::current()) const; // no path compression
+
+    // Unites sets containing a and b. Returns true if merged.
+    bool unite(std::size_t a, std::size_t b, std::source_location loc = std::source_location::current());
+
+    // Like unite(), but expects roots and returns {root_kept, root_absorbed} if merged.
+    // If not merged (already same root) returns {root, root}.
+    std::pair<std::size_t, std::size_t> unite_roots(std::size_t ra, std::size_t rb, std::source_location loc = std::source_location::current());
+
+    std::size_t set_size(std::size_t x, std::source_location loc = std::source_location::current()) const;
+
+private:
+    std::vector<std::size_t> parent_;
+    std::vector<std::size_t> sz_;
+};
+
+
+
+#pragma once
+
+#include <algorithm>
+#include <type_traits>
+
+#include <libbase/point2.h>
+#include <libbase/runtime_assert.h>
+
+// Axis-aligned bounding box in 2D.
+// For pixel coordinates we use half-open convention: [min, max), where max is exclusive.
+template <typename T> struct bbox2 final {
+    point2<T> min{};
+    point2<T> max{};
+    bool empty = true;
+
+    bbox2() = default;
+
+    static bbox2 make_empty() { return bbox2{}; }
+
+    bool is_empty() const noexcept { return empty; }
+
+    T width() const noexcept { return empty ? T(0) : (max.x - min.x); }
+    T height() const noexcept { return empty ? T(0) : (max.y - min.y); }
+
+    point2<T> size() const noexcept { return point2<T>{width(), height()}; }
+
+    // For continuous boxes (or if you want inclusive bounds semantics manually).
+    void include_point(const point2<T>& p) {
+        if (empty) {
+            min = p;
+            max = p;
+            empty = false;
+            return;
+        }
+        min.x = std::min(min.x, p.x);
+        min.y = std::min(min.y, p.y);
+        max.x = std::max(max.x, p.x);
+        max.y = std::max(max.y, p.y);
+    }
+
+    void include_box(const bbox2& b) {
+        if (b.empty) return;
+        if (empty) {
+            *this = b;
+            return;
+        }
+        min.x = std::min(min.x, b.min.x);
+        min.y = std::min(min.y, b.min.y);
+        max.x = std::max(max.x, b.max.x);
+        max.y = std::max(max.y, b.max.y);
+    }
+
+    // Pixel bbox helper: includes a single pixel at integer coordinates (x,y).
+    template <typename U = T, typename = std::enable_if_t<std::is_same_v<U, int>>>
+    void include_pixel(int x, int y) {
+        if (empty) {
+            min = point2i{x, y};
+            max = point2i{x + 1, y + 1};
+            empty = false;
+            return;
+        }
+        min.x = std::min(min.x, x);
+        min.y = std::min(min.y, y);
+        max.x = std::max(max.x, x + 1);
+        max.y = std::max(max.y, y + 1);
+    }
+
+    template <typename U = T, typename = std::enable_if_t<std::is_same_v<U, int>>>
+    bool contains_pixel(int x, int y) const noexcept {
+        if (empty) return false;
+        return x >= min.x && x < max.x && y >= min.y && y < max.y;
+    }
+};
+
+using bbox2f = bbox2<float>;
+using bbox2i = bbox2<int>;
+
+// Avoid implicit template instantiation in every TU
+extern template struct bbox2<float>;
+extern template struct bbox2<int>;
