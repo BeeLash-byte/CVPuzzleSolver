@@ -100,7 +100,7 @@ int main() {
             image8u dilated_eroded_eroded_dilated_mask = morphology::dilate(dilated_eroded_eroded_mask, strength, with_openmp);
             std::cout << "full morphology in " << t.elapsed() << " sec" << std::endl;
 
-            // TODO посмотрите на RGB графики тех сторон у которых нет и не может быть соседей, то есть у белых полос
+            // TODO 1 посмотрите на RGB графики тех сторон у которых нет и не может быть соседей, то есть у белых полос
             // разумно ли они выглядят? с чем это может быть связано? как это исправить?
             debug_io::dump_image(debug_dir + "03_is_foreground_dilated.png", dilated_mask);
             debug_io::dump_image(debug_dir + "04_is_foreground_dilated_eroded.png", dilated_eroded_mask);
@@ -238,7 +238,7 @@ int main() {
 
                             // чтобы удобно было сравнивать - нужно чтобы эти две стороны были выравнены по длине
                             int n = std::min(colorsA.size(), colorsB.size());
-                            // TODO посмотрите на графики и подумайте, может имеет смысл как-то воздействовать на снятые с границы цвета?
+                            // TODO 2 посмотрите на графики и подумайте, может имеет смысл как-то воздействовать на снятые с границы цвета?
                             // например сгладить? если решите попробовать - воспользуйтесь готовой функцией blur(std::vector<color8u> colors, float strength)
                             std::vector<color8u> a = downsample(colorsA, n);
                             std::vector<color8u> b = downsample(colorsB, n);
@@ -251,7 +251,7 @@ int main() {
                                 float d = 0;
                                 color8u colA = a[i];
                                 color8u colB = b[i];
-                                // TODO реализуйте какую-то метрику сравнивающую насколько эти два цвета colA и colB отличаются
+                                // TODO 3 реализуйте какую-то метрику сравнивающую насколько эти два цвета colA и colB отличаются
                                 for (int c = 0; c < channels; ++c) {
                                     uint8_t colAChannelIntensity = colA(c);
                                     uint8_t colBChannelIntensity = colB(c);
@@ -263,7 +263,7 @@ int main() {
                                 rassert(differences[i] >= 0.0f, 32423415214, differences[i]);
                             }
 
-                            // TODO и наконец финальный вердикт - насколько сильно отличаются эти две стороны? например это может быть медиана попиксельных разниц
+                            // TODO 4 и наконец финальный вердикт - насколько сильно отличаются эти две стороны? например это может быть медиана попиксельных разниц
                             // (не забудьте про stats::median, stats:sum, stats::percentile)
                             float total_difference = differences[0]; // это совсем простой вариант чтобы код просто компилировался - тут мы берем разницу первого попавшегося одного пикселя
 
