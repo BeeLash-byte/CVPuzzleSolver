@@ -231,7 +231,7 @@ int main() {
                             // сравнить их пиксель за пикселем, каждый из этих списков пикселей стороны - по часовой стрелке
                             // значит они как борящиеся друг против друга шестеренки трутся и расходятся в противоположных направлениях
                             // поэтому нужно их сориентировать инвертировав порядок одного из них
-                            std::reverse(pixelsB.begin(), pixelsB.end());
+                            // std::reverse(pixelsB.begin(), pixelsB.end()); // да, эту строку нужно раскомментировать
                             // извлекаем цвета пикселей из картинки объекта A
                             const std::vector<color8u> colorsB = extractColors(objImages[objB], pixelsB);
                             rassert(channels == objImages[objB].channels(), 34712839741231);
@@ -246,6 +246,7 @@ int main() {
 
                             // теперь давайте в каждой паре пикселей оценим насколько сильно они отличаются
                             std::vector<float> differences(n);
+                            FastRandom r(2391); // просто генератор случайных чисел
                             for (int i = 0; i < n; ++i) {
                                 float d = 0;
                                 color8u colA = a[i];
@@ -254,6 +255,7 @@ int main() {
                                 for (int c = 0; c < channels; ++c) {
                                     uint8_t colAChannelIntensity = colA(c);
                                     uint8_t colBChannelIntensity = colB(c);
+                                    d += r.nextInt(0, 20); // сейчас я ссуммирую случайные числа, просто чтобы что-то было видно на графике
                                 }
                                 differences[i] = d;
                             }
